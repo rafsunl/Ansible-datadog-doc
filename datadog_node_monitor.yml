@@ -1,0 +1,73 @@
+---
+- name: Install and configure Datadog for container + APM monitoring
+  hosts: web
+  become: yes
+  vars:
+    datadog_api_key: "0cfecf160dd85aa7210b66312e7571ef"
+    datadog_site: "datadoghq.com"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install dependencies
+      apt:
+        name: curl
+        state: present
+
+    - name: Install Datadog Agent
+      shell: |
+        DD_AGENT_MAJOR_VERSION=7 DD_API_KEY={{ datadog_api_key }} DD_SITE={{ datadog_site }} bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script.sh)"
+      args:
+        creates: /etc/datadog-agent/datadog.yaml
+
+    - name: Add dd-agent user to docker group
+      user:
+        name: dd-agent
+        groups: docker
+        append: yes
+
+    - name: Configure Datadog Agent for Docker and APM
+      copy:
+        dest: /etc/datadog-agent/datadog.yaml
+        content: |
+          api_key: {{ datadog_api_key }}
+          site: {{ datadog_site }}
+          bind_host: 0.0.0.0
+          logs_enabled: true
+          apm_config:
+            enabled: true
+            receiver_port: 8126
+          process_config:
+            enabled: true
+          listeners:
+            - name: docker
+          config_providers:
+            - name: docker
+              polling: true
+
+    - name: Enable Docker integration
+      copy:
+        dest: /etc/datadog-agent/conf.d/docker.d/conf.yaml
+        content: |
+          init_config:
+          instances:
+            - url: "unix://var/run/docker.sock"
+
+    - name: Restart Datadog Agent
+      service:
+        name: datadog-agent
+        state: restarted
+        enabled: yes
+
+    - name: Deploy todo-app containers
+      shell: docker-compose up -d
+      args:
+        chdir: /home/{{ ansible_user }}/todo-app
+        executable: /bin/bash
+    - name: Start the todo-app stack
+      shell: |
+        cd /home/{{ ansible_user }}/todo-app
+        docker-compose up -d
+
