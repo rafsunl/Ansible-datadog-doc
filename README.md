@@ -7,7 +7,7 @@ It also deploys your `todo-app` containerized application stack for monitoring i
 ---
 
 ## ⚙️ Features
-- Installs **Datadog Agent v7** using the official Datadog Ansible role  
+- Installs **Datadog Agent v7** using the **official Datadog installation script**
 - Configures:
   - **Docker monitoring** (via `/var/run/docker.sock`)
   - **APM tracing** on port `8126`
@@ -38,7 +38,7 @@ Before running this playbook, ensure:
 |------|--------------|
 | **Update apt cache** | Refreshes the apt package metadata |
 | **Install dependencies** | Installs required utilities like `curl` |
-| **Install Datadog Agent (via Ansible role)** | Uses the official Datadog Ansible Galaxy role |
+| **Install Datadog Agent (via install script)** | Runs Datadog’s official installation script using your API key and site |
 | **Add dd-agent to docker group** | Grants the Datadog Agent access to Docker metrics |
 | **Configure Datadog Agent** | Writes `/etc/datadog-agent/datadog.yaml` for APM, logs, and Docker monitoring |
 | **Enable Docker integration** | Creates `/etc/datadog-agent/conf.d/docker.d/conf.yaml` |
@@ -66,28 +66,23 @@ Before running this playbook, ensure:
    cd Ansible-datadog-doc
    ```
 
-2. **Install the Datadog Ansible role**
-   ```bash
-   ansible-galaxy collection install datadog.dd
-   ```
-
-3. **Create an inventory file (`hosts`)**
+2. **Create an inventory file (`hosts`)**
    ```ini
    [web]
    ansible-node-1 ansible_host=192.168.0.101 ansible_user=rafsun
    ```
 
-4. **Run the playbook**
+3. **Run the playbook**
    ```bash
    ansible-playbook -i hosts datadog_node_monitor.yml
    ```
 
-5. **Verify installation**
+4. **Verify installation**
    ```bash
    sudo datadog-agent status
    ```
 
-6. **Check Datadog Dashboard**
+5. **Check Datadog Dashboard**
    - Go to [https://app.datadoghq.com](https://app.datadoghq.com)
    - Navigate to **Infrastructure → Host Map**
    - Confirm the host is reporting data
@@ -98,7 +93,7 @@ Before running this playbook, ensure:
 ## 📊 Expected Outcome
 
 After successful execution:
-- Datadog Agent is installed via Ansible and reporting data
+- Datadog Agent is installed using the **official install script**
 - Docker and APM integrations are active
 - `todo-app` containers are running and monitored in Datadog
 
@@ -122,3 +117,9 @@ After successful execution:
 | `Agent not reporting to Datadog` | Invalid API key or site | Check `/etc/datadog-agent/datadog.yaml` and restart agent |
 | `docker-compose: command not found` | Docker Compose missing | Install it: `sudo apt install docker-compose -y` |
 
+---
+
+## 🧑‍💻 Author
+**Md Rafsun**  
+Ansible Automation & Observability Engineer  
+[GitHub: @rafsunl](https://github.com/rafsunl)
