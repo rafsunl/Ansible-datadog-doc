@@ -52,7 +52,7 @@ Before running this playbook, ensure:
 
 | Variable | Description | Example |
 |-----------|-------------|----------|
-| `datadog_api_key` | Your unique Datadog API key | `0cfecf160dd85aa7210b66312e7571ef` |
+| `datadog_api_key` | Your unique Datadog API key | `********************` |
 | `datadog_site` | Datadog region site | `datadoghq.com` |
 | `ansible_user` | The remote user that runs Docker | `rafsun` |
 
@@ -120,6 +120,6 @@ After successful execution:
 ---
 
 ## 🧑‍💻 Author
-**Md Rafsun**  
+**Rafsun**  
 Ansible Automation & Observability Engineer  
 [GitHub: @rafsunl](https://github.com/rafsunl)
