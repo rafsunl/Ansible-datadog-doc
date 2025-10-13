@@ -36,6 +36,10 @@
           site: {{ datadog_site }}
           bind_host: 0.0.0.0
           logs_enabled: true
+          logs_config:
+            container_collect_all: true
+            docker_container_use_file: true
+            open_files_limit: 500
           apm_config:
             enabled: true
             receiver_port: 8126
