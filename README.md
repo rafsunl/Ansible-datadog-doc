@@ -1,371 +1,403 @@
-# Datadog Agent Deployment with Ansible
+# Complete Todo App Deployment with Datadog Monitoring
 
 ## Overview
 
-This documentation covers the automated deployment of the Datadog Agent on web servers using Ansible for comprehensive container and APM (Application Performance Monitoring) monitoring of the todo-app application.
+This guide takes you from scratch to a fully deployed todo-app with Datadog monitoring in 4 steps:
 
-## Architecture
+1. **Setup passwordless SSH** (Ansible requirement)
+2. **Install Ansible** (on your control machine)
+3. **Install Docker + Docker Compose** (on target server via Ansible)
+4. **Deploy app + Datadog monitoring** (automated)
 
-The deployment sets up:
-- **Datadog Agent 7**: Latest major version with full monitoring capabilities
-- **Docker Container Monitoring**: Real-time container metrics and logs
-- **APM (Application Performance Monitoring)**: Distributed tracing on port 8126
-- **Process Monitoring**: Track system and application processes
-- **Log Collection**: Automatic collection from all Docker containers
+**End Result:** Todo app running with full monitoring (containers, APM, logs, metrics)
 
-## Prerequisites
+---
 
-Before running the playbook, ensure:
+## Step 1: Setup Passwordless SSH Authentication
 
-1. **Ansible Control Node**:
-   - Ansible installed (2.9 or higher recommended)
-   - SSH access to target hosts configured
-   - Inventory file with `web` hosts group defined
-
-2. **Target Hosts**:
-   - Ubuntu/Debian-based OS
-   - Docker and Docker Compose installed
-   - SSH user with sudo privileges
-   - todo-app application code in `/home/<user>/todo-app`
-
-3. **Datadog Account**:
-   - Active Datadog account
-   - Valid API key from your Datadog organization
-
-## Configuration Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `datadog_api_key` | Your Datadog API key (found in Organization Settings) | `***********************` |
-| `datadog_site` | Datadog site endpoint for your region | `datadoghq.com` (US1), `datadoghq.eu` (EU), `us3.datadoghq.com` (US3) |
-
-## Playbook Structure
-
-The playbook performs the following tasks in sequence:
-
-### 1. System Preparation
-- Updates apt package cache
-- Installs curl for downloading the Datadog installation script
-
-### 2. Datadog Agent Installation
-- Downloads and executes the official Datadog Agent installation script
-- Installs Agent version 7 with provided API key
-- Creates `/etc/datadog-agent/datadog.yaml` configuration file
-
-### 3. Docker Integration Setup
-- Adds `dd-agent` user to the `docker` group for socket access
-- Enables the agent to collect Docker metrics without permission issues
-
-### 4. Agent Configuration
-Configures the following features:
-
-**Core Settings**:
-- Binds to `0.0.0.0` for network accessibility
-- Enables log collection from all containers
-- Sets open file limit to 500 for log processing
-
-**APM Configuration**:
-- Enables APM receiver on port `8126`
-- Ready to accept traces from instrumented applications
-
-**Process Monitoring**:
-- Enables full process collection and monitoring
-
-**Auto-Discovery**:
-- Configures Docker listener for automatic container discovery
-- Enables Docker config provider with polling
-
-### 5. Docker Monitoring
-- Creates Docker integration configuration at `/etc/datadog-agent/conf.d/docker.d/conf.yaml`
-- Configures connection to Docker socket at `unix://var/run/docker.sock`
-
-### 6. Service Management
-- Restarts Datadog Agent to apply all configurations
-- Enables Datadog Agent to start on system boot
-
-### 7. Application Deployment
-- Deploys todo-app containers using docker-compose
-- Ensures all containers are running in detached mode
-
-## Deployment Steps
-
-### 1. Prepare Inventory File
-
-Create or update your Ansible inventory file:
-
-```ini
-[web]
-web-server-1 ansible_host=192.168.1.10 ansible_user=ubuntu
-web-server-2 ansible_host=192.168.1.11 ansible_user=ubuntu
-```
-
-### 2. Update Variables
-
-Edit the playbook and set your Datadog credentials:
-
-```yaml
-vars:
-  datadog_api_key: "your_actual_api_key_here"
-  datadog_site: "datadoghq.com"  # Change based on your region
-```
-
-**Security Best Practice**: Store sensitive variables in Ansible Vault:
+### On Your Control Machine (where you run Ansible)
 
 ```bash
+# Generate SSH key if you don't have one
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+# Press Enter for all prompts (use default location, no passphrase)
+
+# Copy your SSH key to the target server
+ssh-copy-id [user]@YOUR_SERVER_IP
+
+# Test passwordless login
+ssh [user]@YOUR_SERVER_IP
+# Should login without asking for password
+exit
+```
+
+Replace `[user]` with your actual username on the target server.
+
+**Verify:** You can SSH without entering a password ✅
+
+---
+
+## Step 2: Install Ansible
+
+### On Your Control Machine
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install ansible -y
+ansible --version
+```
+
+**macOS:**
+```bash
+brew install ansible
+ansible --version
+```
+
+**Verify:** Should show Ansible version 2.9+ ✅
+
+---
+
+## Step 3: Project Setup
+
+### Create Project Structure
+
+```bash
+mkdir -p ~/ansible-todo-deployment
+cd ~/ansible-todo-deployment
+mkdir -p vars playbooks
+```
+
+### Create Inventory File
+
+Create `inventory.ini`:
+```ini
+[web]
+ansible-node-1 ansible_host=YOUR_SERVER_IP ansible_user=rafsun
+
+[web:vars]
+ansible_python_interpreter=/usr/bin/python3
+```
+
+Replace `YOUR_SERVER_IP` with your actual server IP.
+
+---
+
+## Step 4: Install Docker on Target Server
+
+### Create Docker Installation Playbook
+
+Create `playbooks/install-docker.yml`:
+
+```yaml
+---
+- name: Install Docker and Docker Compose
+  hosts: web
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Enable Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+```
+
+### Run Docker Installation
+
+```bash
+ansible-playbook -i inventory.ini playbooks/install-docker.yml
+```
+
+**Verify:** SSH to server and run `docker --version` ✅
+
+---
+
+## Step 5: Deploy Todo App Code
+
+### Transfer Application Code to Server
+
+```bash
+# On your control machine, create the todo-app directory structure
+mkdir -p todo-app/{frontend,backend}
+
+# Copy your application code to todo-app/
+# (Make sure you have frontend and backend folders with their code)
+
+# Transfer to server
+scp -r todo-app rafsun@YOUR_SERVER_IP:/home/rafsun/
+```
+
+### Create docker-compose.yml
+
+SSH to your server and create `/home/rafsun/todo-app/docker-compose.yml`:
+
+```yaml
+version: '3.8'
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "frontend", "service": "todo-frontend"}]'
+
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=todo
+      - DD_AGENT_HOST=172.17.0.1
+      - DD_ENV=production
+      - DD_SERVICE=todo-backend
+      - DD_VERSION=1.0
+    depends_on:
+      - db
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "backend", "service": "todo-backend"}]'
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: todo
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    labels:
+      com.datadoghq.ad.logs: '[{"source": "postgresql", "service": "todo-db"}]'
+
+volumes:
+  db-data:
+```
+
+**Note:** The `DD_AGENT_HOST=172.17.0.1` points to Docker host where Datadog agent will run.
+
+---
+
+## Step 6: Setup Datadog Credentials
+
+### Create Encrypted Vault
+
+```bash
+cd ~/ansible-todo-deployment
 ansible-vault create vars/datadog_secrets.yml
 ```
 
-Add to vault file:
+Enter a password and add:
 ```yaml
-datadog_api_key: "your_actual_api_key_here"
+datadog_api_key: "YOUR_DATADOG_API_KEY"
+datadog_site: "datadoghq.com"
 ```
 
-Update playbook to include:
+Get your API key from: https://app.datadoghq.com/organization-settings/api-keys
+
+**Save and exit** 
+---
+
+## Step 7: Deploy Datadog + Start Application
+
+### Create Main Deployment Playbook
+
+Create `playbooks/deploy-with-datadog.yml`:
+
 ```yaml
-vars_files:
-  - vars/datadog_secrets.yml
+---
+- name: Install Datadog Agent and Deploy Todo App
+  hosts: web
+  become: yes
+  vars_files:
+    - ../vars/datadog_secrets.yml
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install curl
+      apt:
+        name: curl
+        state: present
+
+    - name: Install Datadog Agent
+      shell: |
+        DD_AGENT_MAJOR_VERSION=7 DD_API_KEY={{ datadog_api_key }} DD_SITE={{ datadog_site }} bash -c "$(curl -L https://s3.amazonaws.com/dd-agent/scripts/install_script.sh)"
+      args:
+        creates: /etc/datadog-agent/datadog.yaml
+
+    - name: Add dd-agent to docker group
+      user:
+        name: dd-agent
+        groups: docker
+        append: yes
+
+    - name: Configure Datadog Agent
+      copy:
+        dest: /etc/datadog-agent/datadog.yaml
+        content: |
+          api_key: {{ datadog_api_key }}
+          site: {{ datadog_site }}
+          bind_host: 0.0.0.0
+          logs_enabled: true
+          logs_config:
+            container_collect_all: true
+          apm_config:
+            enabled: true
+            receiver_port: 8126
+          process_config:
+            enabled: true
+          listeners:
+            - name: docker
+          config_providers:
+            - name: docker
+              polling: true
+
+    - name: Enable Docker integration
+      copy:
+        dest: /etc/datadog-agent/conf.d/docker.d/conf.yaml
+        content: |
+          init_config:
+          instances:
+            - url: "unix://var/run/docker.sock"
+
+    - name: Restart Datadog Agent
+      systemd:
+        name: datadog-agent
+        state: restarted
+        enabled: yes
+
+    - name: Deploy todo-app with docker-compose
+      shell: docker-compose up -d --build
+      args:
+        chdir: /home/{{ ansible_user }}/todo-app
+      become_user: "{{ ansible_user }}"
 ```
 
-### 3. Run the Playbook
-
-Execute the playbook:
+### Run the Deployment
 
 ```bash
-ansible-playbook -i inventory.ini datadog-setup.yml
+cd ~/ansible-todo-deployment
+ansible-playbook -i inventory.ini playbooks/deploy-with-datadog.yml --ask-vault-pass
 ```
 
-With vault encryption:
+Enter your vault password when prompted.
+
+---
+
+## Step 8: Verify Everything Works
+
+### Check Application
+
 ```bash
-ansible-playbook -i inventory.ini datadog-setup.yml --ask-vault-pass
+# Frontend
+curl http://YOUR_SERVER_IP:3000
+
+# Backend
+curl http://YOUR_SERVER_IP:8080
+
+# Check containers
+ssh rafsun@YOUR_SERVER_IP
+docker ps
 ```
 
-### 4. Verify Installation
+You should see 3 containers running:
+- `todo-app-frontend-1`
+- `todo-app-backend-1`
+- `todo-app-db-1`
 
-Check Datadog Agent status on the target host:
+### Check Datadog Agent
 
 ```bash
+ssh rafsun@YOUR_SERVER_IP
 sudo datadog-agent status
 ```
 
-Verify Docker integration:
-```bash
-sudo datadog-agent check docker
-```
+Look for:
+- ✅ Status: Running
+- ✅ Docker Check: OK
+- ✅ APM Agent: Running (port 8126)
+- ✅ Logs Agent: Running
 
-Check APM status:
-```bash
-sudo datadog-agent status | grep -A 10 "APM Agent"
-```
+### View in Datadog Dashboard
 
-## Monitoring Features Enabled
+1. Go to https://app.datadoghq.com
+2. **Containers**: Infrastructure → Containers
+3. **APM**: APM → Services (look for `todo-backend`)
+4. **Logs**: Logs → Search
 
-### Container Monitoring
-- **Metrics**: CPU, memory, network I/O, disk I/O per container
-- **Events**: Container start, stop, die, kill events
-- **Labels**: Automatic collection of container labels and tags
+---
+---
 
-### Log Collection
-- **Automatic Collection**: All container stdout/stderr logs
-- **File-based Collection**: Uses Docker log files for reliability
-- **Log Processing**: Automatic parsing and tagging
+## Complete Deployment Checklist
 
-### APM (Application Performance Monitoring)
-- **Trace Collection**: Receives traces on port 8126
-- **Service Mapping**: Automatic service dependency mapping
-- **Performance Metrics**: Latency, throughput, error rates
+- [ ] Passwordless SSH working
+- [ ] Ansible installed
+- [ ] Inventory file created
+- [ ] Docker installed on server
+- [ ] Todo app code on server
+- [ ] docker-compose.yml created
+- [ ] Datadog vault file created
+- [ ] Deployment playbook run successfully
+- [ ] Containers running (docker ps shows 3 containers)
+- [ ] Datadog agent status OK
+- [ ] App accessible (frontend on :3000, backend on :8080)
+- [ ] Metrics visible in Datadog dashboard
 
-### Process Monitoring
-- **Process List**: All running processes on the host
-- **Resource Usage**: CPU and memory per process
-- **Process Relationships**: Parent-child process tracking
+---
 
-## Application Instrumentation
+## Resources
 
-To send traces from your todo-app to Datadog:
-
-### 1. Configure Environment Variables
-
-Update your `docker-compose.yml` to include:
-
-```yaml
-services:
-  app:
-    environment:
-      - DD_AGENT_HOST=datadog-agent  # or host IP
-      - DD_TRACE_AGENT_PORT=8126
-      - DD_ENV=production
-      - DD_SERVICE=todo-app
-      - DD_VERSION=1.0.0
-```
-
-### 2. Install Datadog Tracer
-
-Depending on your application language:
-
-**Node.js**:
-```bash
-npm install --save dd-trace
-```
-
-**Python**:
-```bash
-pip install ddtrace
-```
-
-**Java**:
-Download `dd-java-agent.jar` and add to your container
-
-### 3. Initialize Tracer
-
-**Node.js** (at app entry point):
-```javascript
-require('dd-trace').init();
-```
-
-**Python**:
-```bash
-ddtrace-run python app.py
-```
-
-## Troubleshooting
-
-### Agent Not Reporting
-
-1. Check agent status:
-```bash
-sudo datadog-agent status
-```
-
-2. Verify API key:
-```bash
-sudo cat /etc/datadog-agent/datadog.yaml | grep api_key
-```
-
-3. Check agent logs:
-```bash
-sudo tail -f /var/log/datadog/agent.log
-```
-
-### Docker Metrics Missing
-
-1. Verify dd-agent user in docker group:
-```bash
-groups dd-agent
-```
-
-2. Test Docker socket access:
-```bash
-sudo -u dd-agent docker ps
-```
-
-3. Restart agent after group change:
-```bash
-sudo systemctl restart datadog-agent
-```
-
-### APM Not Receiving Traces
-
-1. Verify APM is enabled:
-```bash
-sudo datadog-agent status | grep -A 5 "APM Agent"
-```
-
-2. Check port 8126 is listening:
-```bash
-sudo netstat -tlnp | grep 8126
-```
-
-3. Verify application can reach agent:
-```bash
-# From application container
-telnet <agent-host> 8126
-```
-
-### Logs Not Appearing
-
-1. Check log collection is enabled:
-```bash
-sudo cat /etc/datadog-agent/datadog.yaml | grep logs_enabled
-```
-
-2. Verify container logs exist:
-```bash
-docker logs <container-name>
-```
-
-3. Check log agent status:
-```bash
-sudo datadog-agent status | grep -A 10 "Logs Agent"
-```
-
-## Datadog Dashboard Access
-
-After successful deployment:
-
-1. Log in to your Datadog account at `https://app.datadoghq.com`
-2. Navigate to **Infrastructure > Containers** to view Docker metrics
-3. Visit **APM > Services** to see application traces
-4. Check **Logs** section for container logs
-5. Go to **Infrastructure > Processes** for process monitoring
-
-## Security Considerations
-
-1. **API Key Protection**:
-   - Never commit API keys to version control
-   - Use Ansible Vault for sensitive data
-   - Rotate API keys periodically
-
-2. **Network Security**:
-   - APM port 8126 should only be accessible from application containers
-   - Use firewall rules to restrict access
-
-3. **User Permissions**:
-   - The `dd-agent` user has Docker socket access
-   - Review and audit Docker permissions regularly
-
-4. **Log Data**:
-   - Logs may contain sensitive information
-   - Configure log scrubbing rules in Datadog if needed
-   - Review log retention policies
-
-## Maintenance
-
-### Updating Datadog Agent
-
-```bash
-sudo apt-get update
-sudo apt-get install --only-upgrade datadog-agent
-sudo systemctl restart datadog-agent
-```
-
-### Configuration Changes
-
-After modifying `/etc/datadog-agent/datadog.yaml`:
-
-```bash
-sudo systemctl restart datadog-agent
-sudo datadog-agent status
-```
-
-### Re-running the Playbook
-
-The playbook is idempotent and can be safely re-run:
-
-```bash
-ansible-playbook -i inventory.ini datadog-setup.yml
-```
-
-## Additional Resources
-
-- [Datadog Agent Documentation](https://docs.datadoghq.com/agent/)
-- [Docker Integration](https://docs.datadoghq.com/integrations/docker/)
-- [APM Setup Guide](https://docs.datadoghq.com/tracing/)
-- [Log Collection](https://docs.datadoghq.com/logs/)
-- [Ansible Datadog Role](https://github.com/DataDog/ansible-datadog)
-
-## Support
-
-For issues related to:
-- **Ansible Playbook**: Check Ansible documentation and logs
-- **Datadog Agent**: Contact Datadog support or check community forums
-- **Todo-App**: Review application logs and Docker container status
+- [Ansible Docs](https://docs.ansible.com)
+- [Docker Compose Docs](https://docs.docker.com/compose/)
+- [Datadog Integration Docs](https://docs.datadoghq.com/integrations/docker/)
