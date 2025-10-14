@@ -61,7 +61,7 @@ mkdir -p vars playbooks
 Create `inventory.ini`:
 ```ini
 [web]
-ansible-node-1 ansible_host=YOUR_SERVER_IP ansible_user=rafsun
+ansible-node-1 ansible_host=YOUR_SERVER_IP ansible_user=[USER]
 
 [web:vars]
 ansible_python_interpreter=/usr/bin/python3
