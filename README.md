@@ -47,13 +47,6 @@ sudo apt update
 sudo apt install ansible -y
 ansible --version
 ```
-
-**macOS:**
-```bash
-brew install ansible
-ansible --version
-```
-
 **Verify:** Should show Ansible version 2.9+ ✅
 
 ---
