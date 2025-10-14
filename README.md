@@ -2,12 +2,7 @@
 
 ## Overview
 
-This guide takes you from scratch to a fully deployed todo-app with Datadog monitoring in 4 steps:
-
-1. **Setup passwordless SSH** (Ansible requirement)
-2. **Install Ansible** (on your control machine)
-3. **Install Docker + Docker Compose** (on target server via Ansible)
-4. **Deploy app + Datadog monitoring** (automated)
+This guide takes you from scratch to a fully deployed todo-app with Datadog monitoring:
 
 **End Result:** Todo app running with full monitoring (containers, APM, logs, metrics)
 
