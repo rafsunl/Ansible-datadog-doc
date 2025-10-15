@@ -1,5 +1,21 @@
 # Complete Todo App Deployment with Datadog Monitoring
 
+## Prerequisites
+
+1. **Create a Datadog Free Trial account** from [https://www.datadoghq.com/free-datadog-trial/](https://www.datadoghq.com/free-datadog-trial/)  
+   or use the one provided from the **SRE course** on Datadog’s website.  
+   Once your account is active, navigate to  
+   **Integrations → APIs → API Keys**, and copy your API key.  
+   Keep this key ready — you’ll need it later when configuring the Datadog Agent.
+
+2. **Set up your virtual environment**  
+   - Install **Oracle VirtualBox** (or any preferred hypervisor).  
+   - Download a **Linux ISO image** (Ubuntu 22.04 LTS recommended). 
+   - Create two virtual machine one Ansible-master and other is host.
+
+---
+
+
 ## Overview
 
 This guide takes you from scratch to a fully deployed todo-app with Datadog monitoring:
