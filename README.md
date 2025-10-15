@@ -157,12 +157,12 @@ mkdir -p todo-app/{frontend,backend}
 # (Make sure you have frontend and backend folders with their code)
 
 # Transfer to server
-scp -r todo-app rafsun@YOUR_SERVER_IP:/home/rafsun/
+scp -r todo-app rafsun@YOUR_SERVER_IP:/home/[user]/
 ```
 
 ### Create docker-compose.yml
 
-SSH to your server and create `/home/rafsun/todo-app/docker-compose.yml`:
+SSH to your server and create `/home/[user]/todo-app/docker-compose.yml`:
 
 ```yaml
 version: '3.8'
@@ -237,7 +237,7 @@ Get your API key from: https://app.datadoghq.com/organization-settings/api-keys
 
 ## Step 7: Deploy Datadog + Start Application
 
-### Create Main Deployment Playbook
+### Create Main Deployment Playbook on the main host
 
 Create `playbooks/deploy-with-datadog.yml`:
 
@@ -347,7 +347,7 @@ You should see 3 containers running:
 ### Check Datadog Agent
 
 ```bash
-ssh rafsun@YOUR_SERVER_IP
+ssh [user]@YOUR_SERVER_IP
 sudo datadog-agent status
 ```
 
