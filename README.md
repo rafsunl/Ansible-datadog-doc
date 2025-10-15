@@ -157,7 +157,7 @@ mkdir -p todo-app/{frontend,backend}
 # (Make sure you have frontend and backend folders with their code)
 
 # Transfer to server
-scp -r todo-app rafsun@YOUR_SERVER_IP:/home/[user]/
+scp -r todo-app [user]@YOUR_SERVER_IP:/home/[user]/
 ```
 
 ### Create docker-compose.yml
@@ -335,7 +335,7 @@ curl http://YOUR_SERVER_IP:3000
 curl http://YOUR_SERVER_IP:8080
 
 # Check containers
-ssh rafsun@YOUR_SERVER_IP
+ssh [user]@YOUR_SERVER_IP
 docker ps
 ```
 
